@@ -14,7 +14,18 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
+```{r import, echo=FALSE}
+library(tidyverse)
+library(rsample)
+library(recipes)
+library(parsnip)
+library(yardstick)
+library(naniar)
+library(finalfit)
 risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv")
+```
+
+
 
 which variable has missing values
 
