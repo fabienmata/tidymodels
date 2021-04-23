@@ -3,25 +3,30 @@ title: "tidymodels"
 author: "Fabien Mata"
 date: "23/04/2021"
 output: rmarkdown::github_document
+  
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## tidymodels
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv")
+
+which variable has missing values
+
 
 ```{r cars}
-summary(cars)
+risk %>% gg_miss_var()
+```
+see clearly the missing data points
+```{r cars}
+risk %>% missing_plot()
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
 plot(pressure)
