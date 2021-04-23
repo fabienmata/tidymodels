@@ -2,7 +2,7 @@
 title: "tidymodels"
 author: "Fabien Mata"
 date: "23/04/2021"
-output: html_document
+output: rmarkdown::github_document
 ---
 
 ```{r setup, include=FALSE}
