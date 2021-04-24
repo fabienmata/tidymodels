@@ -26,9 +26,12 @@ risk_training <- risk_split %>%
 risk_test <- risk_split %>% 
   testing()
 
+### need to find a way to turn na's to 0 
 risk_rec <- recipe(Risk ~., data = risk_training) %>% 
-  step_naomit(all_predictors()) %>% 
-  step_string2factor(all_nominal()) %>% 
+  
+  #still not working
+  step_mutate(all_predictors(), ~replace_na(.x, 0)) %>% 
+  step_string2factor(all_nominal())
 
 
 risk_rec_prep <- risk_rec %>% 
@@ -36,6 +39,3 @@ risk_rec_prep <- risk_rec %>%
 
 risk_rec_prep %>% 
   bake(new_data = NULL)
-
-risk %>% replace(is.na(.), 0)
-step_mutate
