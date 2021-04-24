@@ -1,33 +1,58 @@
-tidymodels
+Credit Risk with tidymodels
 ================
 Fabien Mata
 23/04/2021
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax
-for authoring HTML, PDF, and MS Word documents. For more details on
-using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that
-includes both content as well as the output of any embedded R code
-chunks within the document. You can embed an R code chunk like this:
+### Load tidymodels packages
 
 ``` r
-summary(cars)
+library(tidyverse)
+library(rsample)
+library(recipes)
+library(parsnip)
+library(yardstick)
+library(naniar)
+library(finalfit)
 ```
 
-    ##      speed           dist       
-    ##  Min.   : 4.0   Min.   :  2.00  
-    ##  1st Qu.:12.0   1st Qu.: 26.00  
-    ##  Median :15.0   Median : 36.00  
-    ##  Mean   :15.4   Mean   : 42.98  
-    ##  3rd Qu.:19.0   3rd Qu.: 56.00  
-    ##  Max.   :25.0   Max.   :120.00
+The data is from kaggle (‘german credit risk’) It contains 10 variables,
+where
 
-## Including Plots
+``` r
+risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", row.names = 'X')
+risk %>% head()
+```
 
-You can also embed plots, for example:
+    ##   Age    Sex Job Housing Saving.accounts Checking.account Credit.amount
+    ## 0  67   male   2     own            <NA>           little          1169
+    ## 1  22 female   2     own          little         moderate          5951
+    ## 2  49   male   1     own          little             <NA>          2096
+    ## 3  45   male   2    free          little           little          7882
+    ## 4  53   male   2    free          little           little          4870
+    ## 5  35   male   1    free            <NA>             <NA>          9055
+    ##   Duration             Purpose Risk
+    ## 0        6            radio/TV good
+    ## 1       48            radio/TV  bad
+    ## 2       12           education good
+    ## 3       42 furniture/equipment good
+    ## 4       24                 car  bad
+    ## 5       36           education good
+
+which variable has missing values
+
+``` r
+risk %>% gg_miss_var()
+```
+
+![](rmd_files/figure-gfm/naniar-1.png)<!-- -->
+
+see clearly the missing data points
+
+``` r
+risk %>% missing_plot()
+```
+
+![](rmd_files/figure-gfm/finalfit-1.png)<!-- -->
 
 ![](rmd_files/figure-gfm/pressure-1.png)<!-- -->
 

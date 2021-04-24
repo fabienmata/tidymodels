@@ -1,5 +1,5 @@
 ---
-title: "tidymodels"
+title: "Credit Risk with tidymodels"
 author: "Fabien Mata"
 date: "23/04/2021"
 output: rmarkdown::github_document
@@ -10,11 +10,9 @@ output: rmarkdown::github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## tidymodels
+### Load tidymodels packages
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-```{r import, echo=FALSE}
+```{r library, results='hide', message=FALSE, warning=FALSE}
 library(tidyverse)
 library(rsample)
 library(recipes)
@@ -22,7 +20,13 @@ library(parsnip)
 library(yardstick)
 library(naniar)
 library(finalfit)
-risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv")
+```
+
+The data is from kaggle ('german credit risk')
+It contains 10 variables, where 
+```{r import}
+risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", row.names = 'X')
+risk %>% head()
 ```
 
 
@@ -30,11 +34,12 @@ risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master
 which variable has missing values
 
 
-```{r cars}
+```{r naniar}
 risk %>% gg_miss_var()
 ```
+
 see clearly the missing data points
-```{r cars}
+```{r finalfit}
 risk %>% missing_plot()
 ```
 
