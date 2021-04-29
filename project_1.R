@@ -1,6 +1,6 @@
 
 library(rsample)
-library(recipe)
+library(recipes)
 library(parsnip)
 library(yardstick)
 library(tune)
@@ -29,10 +29,9 @@ risk_test <- risk_split %>%
 ### need to find a way to turn na's to 0 
 risk_rec <- recipe(Risk ~., data = risk_training) %>% 
   
-  #still not working
-  step_mutate(all_predictors(), ~replace_na(.x, 0)) %>% 
-  step_string2factor(all_nominal())
-
+  step_string2factor(all_nominal()) %>% 
+  step_unknown(Saving.accounts, new_level = "no account") %>% 
+  step_unknown(Checking.account, new_level = "no account")
 
 risk_rec_prep <- risk_rec %>% 
   prep(training= risk_training)
