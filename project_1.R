@@ -44,7 +44,7 @@ risk_rec <- recipe(Risk ~., data = risk_training) %>%
   step_normalize(all_numeric()) %>% 
   
   #turn all the factors into dummies and delete the reference level
-  step_dummy(all_nominal(), -all_outcomes())
+  step_dummy(all_nominal(), -all_outcomes()) 
 
 #
 risk_rec_prep <- risk_rec %>% 
@@ -53,15 +53,73 @@ risk_rec_prep <- risk_rec %>%
 risk_rec_prep %>% 
   bake(new_data = NULL)
 
-risk_baked <- risk_rec_prep %>% 
+risk_training_prep <- risk_rec_prep %>% 
   bake(new_data = NULL)
 
+risk_test_prep <- risk_rec_prep %>% 
+  bake(new_data = risk_test)
+
 # just to check if there are any correlation between the predictor
-#there are not so no need to add corr to our recipe object
-'''z <- risk_baked %>%
-  select_if(is.numeric) %>%
-  cor()
-zdf <- as.data.frame(as.table(z))
-subset(zdf, abs(Freq) > 0.8)
-'''
-# 
+# there are not so no need to add corr to our recipe object
+# z <- risk_baked %>%
+#   select_if(is.numeric) %>%
+#   cor()
+# zdf <- as.data.frame(as.table(z))
+# subset(zdf, abs(Freq) > 0.8)
+
+#model specification
+#logistic regression
+
+#metrics we want for each model 
+#we want : accuracy, sensitivity, specificity, area under the roc curve 
+risk_metrics <- metric_set(accuracy, sens, spec, roc_auc)
+
+#folds caracteristics for the cross validation 
+risk_folds <- vfold_cv(data =  risk_training,
+                        #nb of folds
+                        v = 10,
+                        #outcome variable
+                        strata = Risk)
+
+#model specification 
+
+#tuned logit 
+logit_tune_model <- logistic_reg(penalty = tune(), 
+                                 mixture = tune()) %>%
+  set_engine('glmnet') %>%
+  set_mode('classification')
+
+#tuned decision tree
+dt_tune_model <- decision_tree(cost_complexity = tune(),
+                               tree_depth = tune(),
+                               min_n = tune()) %>%
+  set_engine('rpart') %>%
+  set_mode('classification')
+
+
+#turn the models into a list 
+models <- list(dt = dt_tune_model, logit = logit_tune_model)
+
+#incorporate them in a set of workflow
+risk_wflow_set <- workflow_set(list(rec = risk_rec), models, cross = TRUE)  
+
+#tuning the model <- cross validation
+risk_wflow_set <- risk_wflow_set %>% 
+  workflow_map(
+    
+  # Options to `tune_grid()
+    resamples = risk_folds,
+    grid = 10,
+    metrics = risk_metrics,
+  # Options to `workflow_map()`
+    seed = 3,
+    verbose = TRUE
+)
+
+#rank the models by the area under the roc curve
+rank_results(risk_wflow_set, 
+             rank_metric = "roc_auc", 
+             select_best = TRUE)
+
+
+
