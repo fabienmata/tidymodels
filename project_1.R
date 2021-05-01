@@ -141,19 +141,8 @@ final_fit <- risk_wflow_set %>%
   finalize_workflow(best_results) %>% 
   last_fit(risk_split)
 
-final_fit %>% collect_metrics()
 
-class_preds <- final_fit %>%
-  predict(new_data = risk_test,
-          type = 'class')
-
-prob_preds <- final_fit %>%
-  predict(new_data = risk_test,
-          type = 'prob')
-
-risk_results <- risk_test %>%
-  select(Risk) %>%
-  bind_cols(class_preds, prob_preds)
+risk_resuts <- final_fit %>% collect_predictions()
 
 risk_results
 
