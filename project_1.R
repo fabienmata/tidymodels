@@ -2,6 +2,9 @@
 library(tidymodels) #containing rsample, recipe, parsnip, tune , yardstick
 library(naniar)
 library(finalfit)
+library(workflowsets)
+library(glmnet)
+library(rpart)
 
 risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", row.names = 'X')
 
@@ -46,16 +49,18 @@ risk_rec <- recipe(Risk ~., data = risk_training) %>%
   #turn all the factors into dummies and delete the reference level
   step_dummy(all_nominal(), -all_outcomes()) 
 
-#
+#prep the recipe 
 risk_rec_prep <- risk_rec %>% 
   prep(training= risk_training)
 
 risk_rec_prep %>% 
   bake(new_data = NULL)
 
+#training data
 risk_training_prep <- risk_rec_prep %>% 
   bake(new_data = NULL)
 
+#testing data
 risk_test_prep <- risk_rec_prep %>% 
   bake(new_data = risk_test)
 
