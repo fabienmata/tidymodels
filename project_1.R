@@ -38,9 +38,6 @@ risk_test <- risk_split %>%
 #using recipe package
 risk_rec <- recipe(Risk ~., data = risk_training) %>% 
   
-  #turn nominal variables into factors
-  step_string2factor(all_nominal(), -all_outcomes()) %>%
-  
   #us the na's to create a new level 
   step_unknown(Saving.accounts, new_level = "no account") %>% 
   step_unknown(Checking.account, new_level = "no account") %>% 
@@ -142,7 +139,9 @@ best_results <- risk_wflow_set %>%
 final_fit <- risk_wflow_set %>% 
   pull_workflow("rec_logit") %>% 
   finalize_workflow(best_results) %>% 
-  fit(risk_training)
+  last_fit(risk_split)
+
+final_fit %>% collect_metrics()
 
 class_preds <- final_fit %>%
   predict(new_data = risk_test,
