@@ -7,7 +7,8 @@ library(glmnet)
 library(rpart)
 
 risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", 
-                 row.names = 'X')
+                 row.names = 'X',
+                 stringsAsFactors = TRUE)
 
 #look at the data as is
 risk %>% head()
