@@ -6,7 +6,8 @@ library(workflowsets)
 library(glmnet)
 library(rpart)
 
-risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", row.names = 'X')
+risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", 
+                 row.names = 'X')
 
 #look at the data as is
 risk %>% head()
@@ -37,7 +38,7 @@ risk_test <- risk_split %>%
 risk_rec <- recipe(Risk ~., data = risk_training) %>% 
   
   #turn nominal variables into factors
-  step_string2factor(all_nominal()) %>%
+  step_string2factor(all_nominal(), -all_outcomes()) %>%
   
   #us the na's to create a new level 
   step_unknown(Saving.accounts, new_level = "no account") %>% 
@@ -122,9 +123,41 @@ risk_wflow_set <- risk_wflow_set %>%
 )
 
 #rank the models by the area under the roc curve
-rank_results(risk_wflow_set, 
-             rank_metric = "roc_auc", 
-             select_best = TRUE)
+risk_wflow_set %>% 
+  rank_results(rank_metric = "roc_auc") %>% 
+  filter(.metric == "roc_auc")
+
+risk_wflow_set %>% 
+  autoplot(rank_metric= "roc_auc", metric = "roc_auc")
 
 
+# predict ----------------------------------------------------------------------
+#take the best result
+best_results <- risk_wflow_set %>% 
+   pull_workflow_set_result("rec_logit") %>% 
+   select_best(metric = "roc_auc")
 
+#fit with the best model
+final_fit <- risk_wflow_set %>% 
+  pull_workflow("rec_logit") %>% 
+  finalize_workflow(best_results) %>% 
+  fit(risk_training)
+
+class_preds <- final_fit %>%
+  predict(new_data = risk_test,
+          type = 'class')
+
+prob_preds <- final_fit %>%
+  predict(new_data = risk_test,
+          type = 'prob')
+
+risk_results <- risk_test %>%
+  select(Risk) %>%
+  bind_cols(class_preds, prob_preds)
+
+risk_results
+
+conf_mat(risk_results,
+         truth = Risk,
+         estimate = .pred_class) %>%
+  autoplot(type = 'heatmap')
