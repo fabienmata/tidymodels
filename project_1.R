@@ -70,7 +70,7 @@ risk_metrics <- metric_set(accuracy, sens, spec, roc_auc)
 #folds caracteristics for the cross validation 
 risk_folds <- vfold_cv(data =  risk_training,
                         #nb of folds
-                        v = 10,
+                        v = 5,
                         #outcome variable
                         strata = Risk)
 
@@ -84,36 +84,45 @@ logit_tune_model <- logistic_reg(penalty = tune(),
 
 #tuned discriminant analysis : a compromise between qda and lda by setting the hyperparameter penalty
 
-rda_tune_model <- discrim_regularized(frac_common_cov = tune(),
-                                      frac_identity = tune()) %>% 
+rda_tuned <- discrim_regularized(frac_common_cov = tune(),
+                                 frac_identity = tune()) %>% 
   set_engine('klaR') %>% 
   set_mode('classification')
 
 #tuned decision tree
-dt_tune_model <- decision_tree(cost_complexity = tune(),
+dt_tuned <- decision_tree(cost_complexity = tune(),
                                tree_depth = tune(),
                                min_n = tune()) %>%
   set_engine('rpart') %>%
   set_mode('classification')
 
 #tuned random forest 
-rf_tune_model <- rand_forest(mtry = tune(),
-                             trees = tune(),
-                             min_n = tune()) %>% 
+rf_tuned <- rand_forest(mtry = tune(),
+                        trees = tune(),
+                        min_n = tune()) %>% 
   set_engine('randomForest') %>%
+  set_mode('classification')
+
+knn_tuned <- nearest_neighbor(neighbors = tune(),
+                              weight_func = tune(),
+                              dist_power = tune()) %>% 
+  set_engine('kknn') %>%
+  set_mode('classification')
+
+svm_rbf_tuned <- svm_rbf(cost = tune(),
+                            rbf_sigma = tune()) %>% 
+  set_engine('kernlab') %>% 
   set_mode('classification')
 
 
 
-
-
-
-
 #turn the models into a list 
-models <- list(dt = dt_tune_model, 
-               logit = logit_tune_model,
-               rf = rf_tune_model,
-               rda = rda_tune_model)
+models <- list(#logit = logit_tune_model,
+               #rda = rda_tune_model,
+               #dt = dt_tune_model, 
+               #rf = rf_tune_model,
+               knn = knn_tuned,
+               svm = svm_rbf_tuned)
 
 #incorporate them in a set of workflow
 risk_wflow_set <- workflow_set(list(rec = risk_rec), models, cross = TRUE)  
