@@ -76,4 +76,123 @@ risk_rec <- recipe(Risk ~., data = risk_training) %>%
   step_dummy(all_nominal(), -all_outcomes())
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r models}
+logit_tune_model <- logistic_reg(penalty = tune(), 
+                                 mixture = tune()) %>%
+  set_engine('glmnet') %>%
+  set_mode('classification')
+
+#regularised discriminant analysis : a compromise between qda and lda by setting the hyperparameter penalty
+
+rda_tuned <- discrim_regularized(frac_common_cov = tune(),
+                                 frac_identity = tune()) %>% 
+  set_engine('klaR') %>% 
+  set_mode('classification')
+
+#decision tree
+dt_tuned <- decision_tree(cost_complexity = tune(),
+                               tree_depth = tune(),
+                               min_n = tune()) %>%
+  set_engine('rpart') %>%
+  set_mode('classification')
+
+#random forest 
+rf_tuned <- rand_forest(mtry = tune(),
+                        trees = tune(),
+                        min_n = tune()) %>% 
+  set_engine('randomForest') %>%
+  set_mode('classification')
+
+#k nearest neighbors
+knn_tuned <- nearest_neighbor(neighbors = tune(),
+                              weight_func = tune(),
+                              dist_power = tune()) %>% 
+  set_engine('kknn') %>%
+  set_mode('classification')
+
+#support vector machine
+svm_poly_tuned <- svm_poly(cost = tune(),
+                          degree = tune(),
+                          scale_factor = tune()) %>% 
+  set_engine('kernlab') %>% 
+  set_mode('classification')
+
+```
+
+```{r workflowset parametrisation}
+#make a list out of the models
+models <- list(logit = logit_tune_model,
+               rda = rda_tune_model,
+               dt = dt_tune_model, 
+               rf = rf_tune_model,
+               knn = knn_tuned,
+               svm = svm_poly_tuned)
+
+#incorporate them in a set of workflow
+risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec), 
+                               models = models, 
+                               cross = TRUE)  
+
+#metrics we want for each model 
+#we want : accuracy, sensitivity, specificity, area under the roc curve 
+risk_metrics <- metric_set(accuracy, sens, spec, roc_auc)
+
+#folds caracteristics for the cross validation 
+risk_folds <- vfold_cv(data =  risk_training,
+                       #nb of folds
+                       v = 5,
+                       #outcome variable
+                       strata = Risk)
+```
+
+```{r tune grid}
+wflow_set_grid_results <- risk_wflow_set %>% 
+  workflow_map(
+  #tune_grid() parameters
+    resamples = risk_folds,
+    grid = 10,
+    metrics = risk_metrics,
+  #workflow_map() own parameters
+    seed = 3,
+    verbose = TRUE
+)
+```
+
+```{r rank table}
+#rank the models by the area under the roc curve
+wflow_set_grid_results %>% 
+  rank_results(rank_metric = "roc_auc") %>% 
+  filter(.metric == "roc_auc")
+```
+
+```{r rank plot}
+#plot the performance of each model by rank
+wflow_set_grid_results %>% 
+  autoplot(rank_metric= "roc_auc", 
+           metric = "roc_auc")
+```
+
+```{r collect best result}
+#take the best result
+best_results <- wflow_set_grid_results %>% 
+  pull_workflow_set_result("rec_rf") %>% 
+  select_best(metric = "roc_auc")
+
+#fit the best model
+final_fit <- wflow_set_grid_results %>% 
+  pull_workflow("rec_rf") %>% 
+  finalize_workflow(best_results) %>% 
+  last_fit(risk_split)
+```
+
+```{r best results metrics}
+final_fit %>% collect_metrics()
+```
+
+```{r}
+risk_predictions <- final_fit %>% collect_predictions()
+conf_mat(risk_predictions,
+         truth = Risk,
+         estimate = .pred_class) %>%
+  autoplot(type = 'heatmap')
+```
