@@ -117,10 +117,10 @@ svm_rbf_tuned <- svm_rbf(cost = tune(),
 
 
 #turn the models into a list 
-models <- list(#logit = logit_tune_model,
-               #rda = rda_tune_model,
-               #dt = dt_tune_model, 
-               #rf = rf_tune_model,
+models <- list(logit = logit_tune_model,
+               rda = rda_tune_model,
+               dt = dt_tune_model, 
+               rf = rf_tune_model,
                knn = knn_tuned,
                svm = svm_rbf_tuned)
 
