@@ -191,29 +191,29 @@ wflow_set_grid_results <- risk_wflow_set %>%
 
     ## Warning: package 'vctrs' was built under R version 4.0.5
 
-    ## v 1 of 6 tuning:     rec_logit (23s)
+    ## v 1 of 6 tuning:     rec_logit (22.4s)
 
     ## i 2 of 6 tuning:     rec_rda
 
-    ## v 2 of 6 tuning:     rec_rda (28s)
+    ## v 2 of 6 tuning:     rec_rda (22.6s)
 
     ## i 3 of 6 tuning:     rec_dt
 
-    ## v 3 of 6 tuning:     rec_dt (22s)
+    ## v 3 of 6 tuning:     rec_dt (22.8s)
 
     ## i 4 of 6 tuning:     rec_rf
 
     ## i Creating pre-processing data to finalize unknown parameter: mtry
 
-    ## v 4 of 6 tuning:     rec_rf (1m 7.4s)
+    ## v 4 of 6 tuning:     rec_rf (1m 7.3s)
 
     ## i 5 of 6 tuning:     rec_knn
 
-    ## v 5 of 6 tuning:     rec_knn (49.8s)
+    ## v 5 of 6 tuning:     rec_knn (44.4s)
 
     ## i 6 of 6 tuning:     rec_svm
 
-    ## v 6 of 6 tuning:     rec_svm (28s)
+    ## v 6 of 6 tuning:     rec_svm (26.7s)
 
 ``` r
 #rank the models by the area under the roc curve
