@@ -51,20 +51,6 @@ risk_rec <- recipe(Risk ~., data = risk_training) %>%
   #turn all the factors into dummies and delete the reference level
   step_dummy(all_nominal(), -all_outcomes()) 
 
-# #prep the recipe 
-# risk_rec_prep <- risk_rec %>% 
-#   prep(training= risk_training)
-# 
-# risk_rec_prep %>% 
-#   bake(new_data = NULL)
-# 
-# #training data
-# risk_training_prep <- risk_rec_prep %>% 
-#   bake(new_data = NULL)
-# 
-# #testing data
-# risk_test_prep <- risk_rec_prep %>% 
-#   bake(new_data = risk_test)
 
 # just to check if there are any correlation between the predictor
 # there are not so no need to add corr to our recipe object
@@ -90,10 +76,17 @@ risk_folds <- vfold_cv(data =  risk_training,
 
 #model specification 
 
-#tuned logit 
+#tuned logit ==> regularised
 logit_tune_model <- logistic_reg(penalty = tune(), 
                                  mixture = tune()) %>%
   set_engine('glmnet') %>%
+  set_mode('classification')
+
+#tuned discriminant analysis : a compromise between qda and lda by setting the hyperparameter penalty
+
+rda_tune_model <- discrim_regularized(frac_common_cov = tune(),
+                                      frac_identity = tune()) %>% 
+  set_engine('klaR') %>% 
   set_mode('classification')
 
 #tuned decision tree
@@ -110,10 +103,17 @@ rf_tune_model <- rand_forest(mtry = tune(),
   set_engine('randomForest') %>%
   set_mode('classification')
 
+
+
+
+
+
+
 #turn the models into a list 
 models <- list(dt = dt_tune_model, 
                logit = logit_tune_model,
-               rf = rf_tune_model)
+               rf = rf_tune_model,
+               rda = rda_tune_model)
 
 #incorporate them in a set of workflow
 risk_wflow_set <- workflow_set(list(rec = risk_rec), models, cross = TRUE)  
