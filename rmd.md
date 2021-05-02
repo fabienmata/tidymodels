@@ -76,6 +76,7 @@ risk %>% missing_plot()
 ![](rmd_files/figure-gfm/finalfit-1.png)<!-- -->
 
 ``` r
+set.seed(1)
 risk_split <- initial_split(risk,
                             prop = 0.75,
                             strata = Risk)
@@ -163,6 +164,7 @@ risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec),
 risk_metrics <- metric_set(accuracy, sens, spec, roc_auc)
 
 #folds caracteristics for the cross validation 
+set.seed(2)
 risk_folds <- vfold_cv(data =  risk_training,
                        #nb of folds
                        v = 5,
@@ -189,29 +191,29 @@ wflow_set_grid_results <- risk_wflow_set %>%
 
     ## Warning: package 'vctrs' was built under R version 4.0.5
 
-    ## v 1 of 6 tuning:     rec_logit (21s)
+    ## v 1 of 6 tuning:     rec_logit (23s)
 
     ## i 2 of 6 tuning:     rec_rda
 
-    ## v 2 of 6 tuning:     rec_rda (21.8s)
+    ## v 2 of 6 tuning:     rec_rda (28s)
 
     ## i 3 of 6 tuning:     rec_dt
 
-    ## v 3 of 6 tuning:     rec_dt (21.1s)
+    ## v 3 of 6 tuning:     rec_dt (22s)
 
     ## i 4 of 6 tuning:     rec_rf
 
     ## i Creating pre-processing data to finalize unknown parameter: mtry
 
-    ## v 4 of 6 tuning:     rec_rf (1m 5.2s)
+    ## v 4 of 6 tuning:     rec_rf (1m 7.4s)
 
     ## i 5 of 6 tuning:     rec_knn
 
-    ## v 5 of 6 tuning:     rec_knn (42.2s)
+    ## v 5 of 6 tuning:     rec_knn (49.8s)
 
     ## i 6 of 6 tuning:     rec_svm
 
-    ## v 6 of 6 tuning:     rec_svm (23.3s)
+    ## v 6 of 6 tuning:     rec_svm (28s)
 
 ``` r
 #rank the models by the area under the roc curve
@@ -221,18 +223,18 @@ wflow_set_grid_results %>%
 ```
 
     ## # A tibble: 60 x 9
-    ##    wflow_id  .config     .metric  mean std_err     n preprocessor model     rank
-    ##    <chr>     <chr>       <chr>   <dbl>   <dbl> <int> <chr>        <chr>    <int>
-    ##  1 rec_logit Preprocess~ roc_auc 0.756  0.0118     5 recipe       logisti~     1
-    ##  2 rec_rda   Preprocess~ roc_auc 0.756  0.0159     5 recipe       discrim~     2
-    ##  3 rec_rda   Preprocess~ roc_auc 0.754  0.0162     5 recipe       discrim~     3
-    ##  4 rec_logit Preprocess~ roc_auc 0.754  0.0109     5 recipe       logisti~     4
-    ##  5 rec_logit Preprocess~ roc_auc 0.754  0.0110     5 recipe       logisti~     5
-    ##  6 rec_logit Preprocess~ roc_auc 0.754  0.0108     5 recipe       logisti~     6
-    ##  7 rec_logit Preprocess~ roc_auc 0.754  0.0109     5 recipe       logisti~     7
-    ##  8 rec_logit Preprocess~ roc_auc 0.754  0.0109     5 recipe       logisti~     8
-    ##  9 rec_logit Preprocess~ roc_auc 0.754  0.0109     5 recipe       logisti~     9
-    ## 10 rec_logit Preprocess~ roc_auc 0.754  0.0109     5 recipe       logisti~    10
+    ##    wflow_id .config     .metric  mean std_err     n preprocessor model      rank
+    ##    <chr>    <chr>       <chr>   <dbl>   <dbl> <int> <chr>        <chr>     <int>
+    ##  1 rec_rf   Preprocess~ roc_auc 0.756 0.0168      5 recipe       rand_for~     1
+    ##  2 rec_rf   Preprocess~ roc_auc 0.751 0.0168      5 recipe       rand_for~     2
+    ##  3 rec_rf   Preprocess~ roc_auc 0.751 0.0106      5 recipe       rand_for~     3
+    ##  4 rec_rf   Preprocess~ roc_auc 0.750 0.0212      5 recipe       rand_for~     4
+    ##  5 rec_rf   Preprocess~ roc_auc 0.750 0.0170      5 recipe       rand_for~     5
+    ##  6 rec_rf   Preprocess~ roc_auc 0.750 0.0200      5 recipe       rand_for~     6
+    ##  7 rec_rf   Preprocess~ roc_auc 0.750 0.0180      5 recipe       rand_for~     7
+    ##  8 rec_rf   Preprocess~ roc_auc 0.749 0.0209      5 recipe       rand_for~     8
+    ##  9 rec_rda  Preprocess~ roc_auc 0.749 0.00988     5 recipe       discrim_~     9
+    ## 10 rec_rda  Preprocess~ roc_auc 0.749 0.00950     5 recipe       discrim_~    10
     ## # ... with 50 more rows
 
 ``` r
@@ -264,8 +266,8 @@ final_fit %>% collect_metrics()
     ## # A tibble: 2 x 4
     ##   .metric  .estimator .estimate .config             
     ##   <chr>    <chr>          <dbl> <chr>               
-    ## 1 accuracy binary         0.78  Preprocessor1_Model1
-    ## 2 roc_auc  binary         0.779 Preprocessor1_Model1
+    ## 1 accuracy binary         0.74  Preprocessor1_Model1
+    ## 2 roc_auc  binary         0.768 Preprocessor1_Model1
 
 ``` r
 risk_predictions <- final_fit %>% collect_predictions()

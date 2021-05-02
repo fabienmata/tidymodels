@@ -50,6 +50,7 @@ risk %>% missing_plot()
 ```
 
 ```{r split }
+set.seed(1)
 risk_split <- initial_split(risk,
                             prop = 0.75,
                             strata = Risk)
@@ -139,6 +140,7 @@ risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec),
 risk_metrics <- metric_set(accuracy, sens, spec, roc_auc)
 
 #folds caracteristics for the cross validation 
+set.seed(2)
 risk_folds <- vfold_cv(data =  risk_training,
                        #nb of folds
                        v = 5,
