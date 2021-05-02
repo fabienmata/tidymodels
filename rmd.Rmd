@@ -3,7 +3,6 @@ title: "Credit Risk with tidymodels"
 author: "Fabien Mata"
 date: "23/04/2021"
 output: rmarkdown::github_document
-  
 ---
 
 ```{r setup, include=FALSE}
@@ -13,39 +12,68 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Load tidymodels packages
 
 ```{r library, results='hide', message=FALSE, warning=FALSE}
-library(tidyverse)
-library(rsample)
-library(recipes)
-library(parsnip)
-library(yardstick)
-library(naniar)
-library(finalfit)
+library(tidymodels) #containing rsample, recipe, parsnip, tune , yardstick
+library(naniar) #NA handling
+library(finalfit) #NA handling
+library(workflowsets) 
+###engines for parsnip models 
+library(glmnet) #for regularised logistic 
+library(rpart) #for decision tree
+library(randomForest) #self explaining
+library(klaR) #for discriminant analysis 
+library(kknn) #for nearest neighbor
+library(kernlab) #for support vector machine
 ```
 
-The data is from kaggle ('german credit risk')
-It contains 10 variables, where 
+The data is from kaggle ('german credit risk') It contains 10 variables, where
+
 ```{r import}
-risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", row.names = 'X')
+risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", 
+                 row.names = 'X',
+                 stringsAsFactors = TRUE)
 risk %>% head()
 ```
 
-
-
-which variable has missing values
-
+```{r vars}
+risk %>% str()
+```
 
 ```{r naniar}
 risk %>% gg_miss_var()
 ```
 
 see clearly the missing data points
+
 ```{r finalfit}
 risk %>% missing_plot()
 ```
 
+```{r split }
+risk_split <- initial_split(risk,
+                            prop = 0.75,
+                            strata = Risk)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+risk_training <- risk_split %>% 
+  training()
+
+risk_test <- risk_split %>% 
+  testing()
+```
+
+```{r recipe}
+
+risk_rec <- recipe(Risk ~., data = risk_training) %>% 
+  #set the event/reference level to 'good'
+  step_relevel(Risk, ref_level = 'good') %>% 
+  #us the na's to create a new level 
+  step_unknown(Saving.accounts, new_level = "no account") %>% 
+  step_unknown(Checking.account, new_level = "no account") %>% 
+  
+  #normalize all numeric variables
+  step_normalize(all_numeric()) %>% 
+  
+  #turn all the factors into dummies and delete the reference level
+  step_dummy(all_nominal(), -all_outcomes())
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
