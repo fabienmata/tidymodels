@@ -7,6 +7,7 @@ library(workflowsets)
 library(glmnet) #for regularised logistic 
 library(rpart) #for decision tree
 library(randomForest) #self explaining
+library(discrim)
 library(klaR) #for discriminant analysis 
 library(kknn) #for nearest neighbor
 library(kernlab) #for support vector machine
@@ -100,15 +101,17 @@ svm_poly_tuned <- svm_poly(cost = tune(),
 
 
 #make a list out of the models
-models <- list(logit = logit_tune_model,
-               rda = rda_tune_model,
-               dt = dt_tune_model, 
-               rf = rf_tune_model,
+models <- list(logit = logit_tuned,
+               rda = rda_tuned,
+               dt = dt_tuned, 
+               rf = rf_tuned,
                knn = knn_tuned,
                svm = svm_poly_tuned)
 
 #incorporate them in a set of workflow
-risk_wflow_set <- workflow_set(list(rec = risk_rec), models, cross = TRUE)  
+risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec), 
+                               models = models, 
+                               cross = TRUE)  
 
 #metrics we want for each model 
 #we want : accuracy, sensitivity, specificity, area under the roc curve 
@@ -141,7 +144,8 @@ wflow_set_grid_results %>%
 
 #plot the performance of each model by rank
 wflow_set_grid_results %>% 
-  autoplot(rank_metric= "roc_auc", metric = "roc_auc")
+  autoplot(rank_metric= "roc_auc", 
+           metric = "roc_auc")
 
 
 # predict ----------------------------------------------------------------------

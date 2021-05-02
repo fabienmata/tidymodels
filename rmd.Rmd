@@ -20,7 +20,8 @@ library(workflowsets)
 library(glmnet) #for regularised logistic 
 library(rpart) #for decision tree
 library(randomForest) #self explaining
-library(klaR) #for discriminant analysis 
+library(klaR) #for discriminant analysis (engine)
+library(discrim) #for discriminant analysis (function)
 library(kknn) #for nearest neighbor
 library(kernlab) #for support vector machine
 ```
@@ -77,7 +78,7 @@ risk_rec <- recipe(Risk ~., data = risk_training) %>%
 ```
 
 ```{r models}
-logit_tune_model <- logistic_reg(penalty = tune(), 
+logit_tuned <- logistic_reg(penalty = tune(), 
                                  mixture = tune()) %>%
   set_engine('glmnet') %>%
   set_mode('classification')
@@ -121,10 +122,10 @@ svm_poly_tuned <- svm_poly(cost = tune(),
 
 ```{r workflowset parametrisation}
 #make a list out of the models
-models <- list(logit = logit_tune_model,
-               rda = rda_tune_model,
-               dt = dt_tune_model, 
-               rf = rf_tune_model,
+models <- list(logit = logit_tuned,
+               rda = rda_tuned,
+               dt = dt_tuned, 
+               rf = rf_tuned,
                knn = knn_tuned,
                svm = svm_poly_tuned)
 
