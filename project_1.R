@@ -1,10 +1,13 @@
 
 library(tidymodels) #containing rsample, recipe, parsnip, tune , yardstick
-library(naniar)
-library(finalfit)
-library(workflowsets)
-library(glmnet)
-library(rpart)
+library(naniar) #NA handling
+library(finalfit) #NA handling
+library(workflowsets) 
+library(glmnet) #for regularised logistic 
+library(rpart) #for decision tree
+#library(baguette) #for ensemble learning
+library(randomForest) #self explaining
+library(discrim) #for discriminant analysis 
 
 risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", 
                  row.names = 'X',
@@ -48,20 +51,20 @@ risk_rec <- recipe(Risk ~., data = risk_training) %>%
   #turn all the factors into dummies and delete the reference level
   step_dummy(all_nominal(), -all_outcomes()) 
 
-#prep the recipe 
-risk_rec_prep <- risk_rec %>% 
-  prep(training= risk_training)
-
-risk_rec_prep %>% 
-  bake(new_data = NULL)
-
-#training data
-risk_training_prep <- risk_rec_prep %>% 
-  bake(new_data = NULL)
-
-#testing data
-risk_test_prep <- risk_rec_prep %>% 
-  bake(new_data = risk_test)
+# #prep the recipe 
+# risk_rec_prep <- risk_rec %>% 
+#   prep(training= risk_training)
+# 
+# risk_rec_prep %>% 
+#   bake(new_data = NULL)
+# 
+# #training data
+# risk_training_prep <- risk_rec_prep %>% 
+#   bake(new_data = NULL)
+# 
+# #testing data
+# risk_test_prep <- risk_rec_prep %>% 
+#   bake(new_data = risk_test)
 
 # just to check if there are any correlation between the predictor
 # there are not so no need to add corr to our recipe object
@@ -100,9 +103,17 @@ dt_tune_model <- decision_tree(cost_complexity = tune(),
   set_engine('rpart') %>%
   set_mode('classification')
 
+#tuned random forest 
+rf_tune_model <- rand_forest(mtry = tune(),
+                             trees = tune(),
+                             min_n = tune()) %>% 
+  set_engine('randomForest') %>%
+  set_mode('classification')
 
 #turn the models into a list 
-models <- list(dt = dt_tune_model, logit = logit_tune_model)
+models <- list(dt = dt_tune_model, 
+               logit = logit_tune_model,
+               rf = rf_tune_model)
 
 #incorporate them in a set of workflow
 risk_wflow_set <- workflow_set(list(rec = risk_rec), models, cross = TRUE)  
@@ -132,21 +143,21 @@ risk_wflow_set %>%
 # predict ----------------------------------------------------------------------
 #take the best result
 best_results <- risk_wflow_set %>% 
-   pull_workflow_set_result("rec_logit") %>% 
+   pull_workflow_set_result("rec_bagging") %>% 
    select_best(metric = "roc_auc")
 
 #fit with the best model
 final_fit <- risk_wflow_set %>% 
-  pull_workflow("rec_logit") %>% 
+  pull_workflow("rec_bagging") %>% 
   finalize_workflow(best_results) %>% 
   last_fit(risk_split)
 
-
-risk_resuts <- final_fit %>% collect_predictions()
+risk_results <- final_fit %>% collect_metrics()
+risk_predictions <- final_fit %>% collect_predictions()
 
 risk_results
 
-conf_mat(risk_results,
+conf_mat(risk_predictions,
          truth = Risk,
          estimate = .pred_class) %>%
   autoplot(type = 'heatmap')
