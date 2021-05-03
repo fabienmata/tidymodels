@@ -786,7 +786,7 @@ conf_mat(risk_predictions,
 
 ![](rmd_files/figure-gfm/heatmap-1.png)<!-- -->
 
-Step\_smote helped to has this better result, where we have a better
+Step\_smote helped to have this better result, where we have a better
 sensitivity of the model and an acceptable specificity.
 
 Finally, the roc curve :
