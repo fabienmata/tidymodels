@@ -440,8 +440,8 @@ risk %>% ggplot(aes(x= Duration, y = Credit.amount)) +
 
 ![](rmd_files/figure-gfm/credit%20amount%20vs%20duration-1.png)<!-- -->
 
-Makes sense, the higher the amount is the longer the duration of the
-credit, no notable difference between bad and good customers. We can
+Makes sense, the higher the amount, the longer the duration of the
+credit. No notable difference between bad and good customers. We can
 continue the analysis with this in mind.
 
 Since the most interesting variables (credit amount, duration) are
@@ -593,7 +593,7 @@ package and engines are declared to be used to fit the models.
 
 -   a k nearest neighbor model.
 
--   a rbf kernel svm has been chosed as it is a good default model.
+-   a rbf kernel svm has been chosen as it is a good svm default model.
 
 ``` r
 logit_tuned <- logistic_reg(penalty = tune(), 
