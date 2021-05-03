@@ -42,7 +42,7 @@ Here are the variables :
 
 ## 2. Packages
 
-The work was done using the tidymodels framework. is a collection of
+The work was done using the tidymodels framework, which is a collection of
 packages for modeling and machine learning using tidyverse principles.
 It is composed of the following packages :
 
