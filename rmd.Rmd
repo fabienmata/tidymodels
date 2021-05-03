@@ -9,10 +9,50 @@ output: rmarkdown::github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Load tidymodels packages
+## 1- The data 
+
+### Context
+
+The dataset contains 1000 entries with 10 categorical/symbolic attributes. In this dataset, each entry represents a person who takes a credit by a bank. Each person is classified as good or bad credit risks according to the set of attributes. The link to the original dataset can be found [here](https://www.kaggle.com/kabure/german-credit-data-with-risk?select=german_credit_data.csv).
+
+### Content
+
+Here are the variables :
+
+1.  Age (numeric)
+
+2.  Sex (text: male, female)
+
+3.  Job (numeric: 0 - unskilled and non-resident, 1 - unskilled and resident, 2 - skilled, 3 - highly skilled)
+
+4.  Housing (text: own, rent, or free)
+
+5.  Saving accounts (text - little, moderate, quite rich, rich)
+
+6.  Checking account (numeric, in DM - Deutsch Mark)
+
+7.  Credit amount (numeric, in DM)
+
+8.  Duration (numeric, in month)
+
+9.  Purpose (text: car, furniture/equipment, radio/TV, domestic appliances, repairs, education, business, vacation/others)
+
+10. Risk (text : good, bad)
+
+## 2. Packages
+
+The work was done using the tidymodels framework. is a collection of packages for modeling and machine learning using tidyverse principles. It is composed of the following packages :
+
+-   'rsample' and 'recipes' for preprocessing
+
+-   'parsnip' and 'tune' for modeling and model optimization. Parsnip depends on several machine learning engines, it then requires the presence of each package for each engine.
+
+-   'yardstick' for model validation
+
+'workfowsets' is not part of the tidymodels collection of package, event though it is a part of the **tidymodels** ecosystem. It helps to better manage machine learning workflows.
 
 ```{r library, results='hide', message=FALSE, warning=FALSE}
-library(tidymodels) #containing rsample, recipe, parsnip, tune , yardstick
+library(tidymodels) 
 library(naniar) #NA handling
 library(finalfit) #NA handling
 library(workflowsets) 
@@ -26,28 +66,100 @@ library(kknn) #for nearest neighbor
 library(kernlab) #for support vector machine
 ```
 
-The data is from kaggle ('german credit risk') It contains 10 variables, where
+## 3. Exporatory analysis
+
+Let's take a first look at the data
 
 ```{r import}
 risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", 
                  row.names = 'X',
                  stringsAsFactors = TRUE)
-risk %>% head()
+library(kableExtra)
+risk %>% head() %>% kbl() %>% kable_styling()
 ```
+
+Check column info :
 
 ```{r vars}
 risk %>% str()
 ```
 
+### a. Missing values handling
+
+Number of missing values per column :
+
 ```{r naniar}
 risk %>% gg_miss_var()
 ```
 
-see clearly the missing data points
+Missing data points position :
 
 ```{r finalfit}
 risk %>% missing_plot()
 ```
+
+### b. Descriptive analysis
+
+```{r }
+nums = c("Age", "Credit.amount", "Duration", "Job")
+risk[nums] %>%                    
+  gather() %>%                            
+  ggplot(aes(value)) +        
+  facet_wrap(~ key, scales = "free") +  
+  geom_density()
+```
+
+```{r corrplot}
+require(corrplot)
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+corrplot(cor(risk[nums]), method = "color", col = col(200),  
+         type = "upper", order = "hclust", 
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col = "darkblue", tl.srt = 45, #Text label color and rotation
+         # Combine with significance level
+         sig.level = 0.01,  
+         # hide correlation coefficient on the principal diagonal
+         diag = FALSE 
+         )
+```
+
+```{r}
+bg<-ggplot(risk, aes(x= Duration, y = Credit.amount)) +
+  geom_point(aes(colour = Risk), alpha=.3) + 
+  theme(axis.text.x=element_blank(), legend.position = "none") +facet_wrap(~Risk)
+bg + labs(title = "Churners visit museum less", x= "", y="")
+```
+
+```{r credit amount}
+ggplot(risk)+ 
+  geom_density(aes(x = Credit.amount,fill = Risk), alpha=.5)+
+  facet_wrap(~Saving.accounts)+
+  labs(title = "Price pattern", y= "", x="Age")
+```
+
+```{r saving accounts}
+ggplot(data = risk,aes(x= Saving.accounts, y =Credit.amount, color = Risk)) + 
+  geom_boxplot(size=1, alpha = .3) +
+  scale_x_discrete() +
+  scale_y_continuous()+ geom_jitter(aes(color=Risk), alpha=.2)
+```
+
+```{r checking account}
+ggplot(data = risk,aes(x= Checking.account, y =Credit.amount, color = Risk)) + 
+  geom_boxplot(size=1, alpha = .3) +
+  scale_x_discrete() +
+  scale_y_continuous()+ geom_jitter(aes(color=Risk), alpha=.2)
+```
+
+```{r purpose}
+ggplot(data = risk,aes(x= Purpose, y =Credit.amount, color = Risk)) + 
+  geom_boxplot(size=1, alpha = .3) +
+  scale_x_discrete() +
+  scale_y_continuous()+ geom_jitter(aes(color=Risk), alpha=.2)
+
+```
+
+## 4. Prepocessing
 
 ```{r split }
 set.seed(1)
@@ -60,6 +172,14 @@ risk_training <- risk_split %>%
 
 risk_test <- risk_split %>% 
   testing()
+
+#folds caracteristics for the cross validation 
+set.seed(2)
+risk_folds <- vfold_cv(data =  risk_training,
+                       #number of partition
+                       v = 3,
+                       #outcome variable
+                       strata = Risk)
 ```
 
 ```{r recipe}
@@ -139,13 +259,6 @@ risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec),
 #we want : accuracy, sensitivity, specificity, area under the roc curve 
 risk_metrics <- metric_set(accuracy, sens, spec, roc_auc)
 
-#folds caracteristics for the cross validation 
-set.seed(2)
-risk_folds <- vfold_cv(data =  risk_training,
-                       #nb of folds
-                       v = 5,
-                       #outcome variable
-                       strata = Risk)
 ```
 
 ```{r tune grid}
