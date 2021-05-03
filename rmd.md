@@ -735,11 +735,11 @@ wflow_set_grid_results %>%
     ## 10 rec_rf   Preprocessor~ sens    0.785 0.00883     5 recipe       rand_f~     5
     ## # ... with 110 more rows
 
-Random forest models have the best accuracies and sensitivities. Which
-is good, because we only want to give credit to the good customers.
+Random forest models have the best accuracies and sensitivities, which
+is good.
 
 Since accuracy is not the best metric to compare models, let’s check the
-area under the roc curve :
+area under the roc curve, which gives a better overview:
 
 ``` r
 #plot the performance of each model by rank
