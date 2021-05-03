@@ -3,7 +3,7 @@ Credit Risk with tidymodels
 Fabien Mata
 23/04/2021
 
-## 1- Introduction
+## 1- The data
 
 ### Context
 
@@ -14,10 +14,11 @@ according to the set of attributes. The link to the original dataset can
 be found
 [here](https://www.kaggle.com/kabure/german-credit-data-with-risk?select=german_credit_data.csv).
 
-### Aim 
+### Aim
 
-The goal of the study is for the bank to know whether a new customer is bad or good, based on the data that we have to decide if he should be given a loan or not. 
-
+The goal of the study is for the bank to know whether a new customer is
+bad or good, based on the data that we have to decide if he should be
+given a loan or not.
 
 ### Content
 
@@ -47,26 +48,30 @@ Here are the variables :
 
 ## 2. Packages
 
-The work was done using the tidymodels framework, which is a collection of
-packages for modeling and machine learning using tidyverse principles.
-It is composed of the following packages :
+The work was done using the tidymodels framework. which is a collection
+of packages for modeling and machine learning using tidyverse
+principles. It is composed of the following packages :
 
--   ‘rsample’ and ‘recipes’ for preprocessing
+-   ‘rsample’ and ‘recipes’ for preprocessing.
 
 -   ‘parsnip’ and ‘tune’ for modeling and model optimization. Parsnip
     depends on several machine learning engines, it then requires the
     presence of each package for each engine.
 
--   ‘yardstick’ for model validation
+-   ‘yardstick’ for model evaluation and validation
 
-‘workfowsets’ is not part of the tidymodels collection of package, event
+‘workfowsets’ is not part of the tidymodels collection of package, even
 though it is a part of the **tidymodels** ecosystem. It helps to better
 manage machine learning workflows.
+
+Several other packages were used during the exploratory analysis. Their
+roles are given in the comments.
 
 ``` r
 library(tidymodels) 
 library(naniar) #NA handling
 library(finalfit) #NA handling
+library(kableExtra) #pretty tables
 library(workflowsets) 
 ###engines for parsnip models 
 library(glmnet) #for regularised logistic 
@@ -81,25 +86,13 @@ library(themis)
 
 ## 3. Exporatory analysis
 
-Let’s take a first look at the data
+Let’s take a first look at the data.
 
 ``` r
 risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", 
                  row.names = 'X',
                  stringsAsFactors = TRUE)
-library(kableExtra)
-```
 
-    ## Warning: package 'kableExtra' was built under R version 4.0.5
-
-    ## 
-    ## Attaching package: 'kableExtra'
-
-    ## The following object is masked from 'package:dplyr':
-    ## 
-    ##     group_rows
-
-``` r
 risk %>% head() %>% kbl() %>% kable_styling()
 ```
 
@@ -433,7 +426,7 @@ cor(risk[nums]) %>%  corrplot(method = "color", col = col(200),
 ![](rmd_files/figure-gfm/corrplot-1.png)<!-- -->
 
 Credit amount and the duration of the credits are somehow correlated.
-Let’s check this link.
+Let’s visually check this link.
 
 ``` r
 risk %>% ggplot(aes(x= Duration, y = Credit.amount)) +
@@ -445,13 +438,13 @@ risk %>% ggplot(aes(x= Duration, y = Credit.amount)) +
 
 ![](rmd_files/figure-gfm/credit%20amount%20vs%20duration-1.png)<!-- -->
 
-Makes sense, the higher the amount, the longer the duration of the
-credit. No notable difference between bad and good customers. We can
-continue the analysis with this in mind.
+The higher the amount, the longer the duration of the credit. There is
+no notable difference between bad and good customers. We can continue
+the analysis with this in mind.
 
-Since the most interesting variables (credit amount, duration) are
-correlated, one of them would be enough to do the analysis of factor
-variables.
+Since the most interesting quantitative variables (credit amount,
+duration) are correlated, one of them would be enough to do the analysis
+of factor variables.
 
 Before qualitative variable analysis, let’s take a look to the age
 distribution between good and bad customers.
@@ -550,20 +543,20 @@ Here is a little description of each function and the reason for them:
 
 -   step\_relevel : used to change the level of the binary outcome
     variable. By default, when importing the data, the event level is
-    set to bad. Which is not really a problem but compromised the
-    interpretation of the metrics, thus the change.
+    set to ‘bad’. We want the event to be ‘good’ for a better
+    interpretability.
 
--   step\_unknown : used to set na values to a new level in the
-    concerned factor.
+-   step\_unknown : used to set na values to a new level in the affected
+    factor variable.
 
 -   step\_normalize : self explanatory name.
 
 -   step\_dummy : one-hot encoding dropping the reference level.
 
--   step\_smote : data augmentation for the outcome : the rare event
-    level, which is the level ‘bad’. The data is augmented so that there
-    are the same number of each outcome in the training dataset before
-    modeling.
+-   step\_smote : data augmentation for the outcome. In our outcome
+    variable, the ‘bad’ level is underrepresented. The data is augmented
+    so that there are the same number of entries for each levels in the
+    training dataset before modeling.
 
 ``` r
 risk_rec <- recipe(Risk ~., data = risk_training) %>% 
@@ -635,7 +628,7 @@ knn_tuned <- nearest_neighbor(neighbors = tune(),
   set_mode('classification')
 
 #support vector machine
-svm_poly_tuned <- svm_rbf(cost = tune(),
+svm_rbf_tuned <- svm_rbf(cost = tune(),
                           rbf_sigma = tune()) %>% 
   set_engine('kernlab') %>% 
   set_mode('classification')
@@ -654,7 +647,7 @@ models <- list(logit = logit_tuned,
                dt = dt_tuned, 
                rf = rf_tuned,
                knn = knn_tuned,
-               svm = svm_poly_tuned)
+               svm = svm_rbf_tuned)
 
 #incorporate them in a set of workflow
 risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec), 
@@ -687,59 +680,610 @@ wflow_set_grid_results <- risk_wflow_set %>%
 
     ## Warning: package 'vctrs' was built under R version 4.0.5
 
-    ## v 1 of 6 tuning:     rec_logit (22.3s)
+    ## v 1 of 6 tuning:     rec_logit (23.2s)
 
     ## i 2 of 6 tuning:     rec_rda
 
-    ## v 2 of 6 tuning:     rec_rda (23.6s)
+    ## v 2 of 6 tuning:     rec_rda (24.4s)
 
     ## i 3 of 6 tuning:     rec_dt
 
-    ## v 3 of 6 tuning:     rec_dt (21.7s)
+    ## v 3 of 6 tuning:     rec_dt (22.6s)
 
     ## i 4 of 6 tuning:     rec_rf
 
     ## i Creating pre-processing data to finalize unknown parameter: mtry
 
-    ## v 4 of 6 tuning:     rec_rf (1m 34.3s)
+    ## v 4 of 6 tuning:     rec_rf (1m 34.8s)
 
     ## i 5 of 6 tuning:     rec_knn
 
-    ## v 5 of 6 tuning:     rec_knn (1m 9.5s)
+    ## v 5 of 6 tuning:     rec_knn (1m 2s)
 
     ## i 6 of 6 tuning:     rec_svm
 
-    ## v 6 of 6 tuning:     rec_svm (40.4s)
+    ## v 6 of 6 tuning:     rec_svm (41.6s)
 
 ### b. Model screening
 
 ``` r
 #rank the models by the area under the roc curve
+library(kableExtra)
 wflow_set_grid_results %>% 
-  rank_results(rank_metric = "accuracy") %>% 
-  filter(.metric == "accuracy" | .metric == "sens")
+  rank_results(rank_metric = "accuracy", select_best = TRUE) %>% 
+  filter(.metric == "accuracy" | .metric == "sens" | .metric == "spec" ) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%", height = "200px")
 ```
 
-    ## # A tibble: 120 x 9
-    ##    wflow_id .config       .metric  mean std_err     n preprocessor model    rank
-    ##    <chr>    <chr>         <chr>   <dbl>   <dbl> <int> <chr>        <chr>   <int>
-    ##  1 rec_rf   Preprocessor~ accura~ 0.744 0.0105      5 recipe       rand_f~     1
-    ##  2 rec_rf   Preprocessor~ sens    0.796 0.0111      5 recipe       rand_f~     1
-    ##  3 rec_rf   Preprocessor~ accura~ 0.741 0.0125      5 recipe       rand_f~     2
-    ##  4 rec_rf   Preprocessor~ sens    0.821 0.0152      5 recipe       rand_f~     2
-    ##  5 rec_rf   Preprocessor~ accura~ 0.74  0.0114      5 recipe       rand_f~     3
-    ##  6 rec_rf   Preprocessor~ sens    0.810 0.00797     5 recipe       rand_f~     3
-    ##  7 rec_rf   Preprocessor~ accura~ 0.739 0.00490     5 recipe       rand_f~     4
-    ##  8 rec_rf   Preprocessor~ sens    0.787 0.00646     5 recipe       rand_f~     4
-    ##  9 rec_rf   Preprocessor~ accura~ 0.733 0.00298     5 recipe       rand_f~     5
-    ## 10 rec_rf   Preprocessor~ sens    0.785 0.00883     5 recipe       rand_f~     5
-    ## # ... with 110 more rows
+<div
+style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:200px; overflow-x: scroll; width:100%; ">
 
-Random forest models have the best accuracies and sensitivities, which
-is good.
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+wflow\_id
+</th>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+.config
+</th>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+.metric
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+mean
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+std\_err
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+n
+</th>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+preprocessor
+</th>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+model
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+rank
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+rec\_rf
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model07
+</td>
+<td style="text-align:left;">
+accuracy
+</td>
+<td style="text-align:right;">
+0.7440000
+</td>
+<td style="text-align:right;">
+0.0104563
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+rand\_forest
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_rf
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model07
+</td>
+<td style="text-align:left;">
+sens
+</td>
+<td style="text-align:right;">
+0.7961905
+</td>
+<td style="text-align:right;">
+0.0111066
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+rand\_forest
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_rf
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model07
+</td>
+<td style="text-align:left;">
+spec
+</td>
+<td style="text-align:right;">
+0.6222222
+</td>
+<td style="text-align:right;">
+0.0198762
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+rand\_forest
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_rda
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model01
+</td>
+<td style="text-align:left;">
+accuracy
+</td>
+<td style="text-align:right;">
+0.7080000
+</td>
+<td style="text-align:right;">
+0.0116237
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+discrim\_regularized
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_rda
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model01
+</td>
+<td style="text-align:left;">
+sens
+</td>
+<td style="text-align:right;">
+0.7466667
+</td>
+<td style="text-align:right;">
+0.0064594
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+discrim\_regularized
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_rda
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model01
+</td>
+<td style="text-align:left;">
+spec
+</td>
+<td style="text-align:right;">
+0.6177778
+</td>
+<td style="text-align:right;">
+0.0301437
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+discrim\_regularized
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_dt
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model02
+</td>
+<td style="text-align:left;">
+accuracy
+</td>
+<td style="text-align:right;">
+0.6986667
+</td>
+<td style="text-align:right;">
+0.0071181
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+decision\_tree
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_dt
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model02
+</td>
+<td style="text-align:left;">
+sens
+</td>
+<td style="text-align:right;">
+0.7390476
+</td>
+<td style="text-align:right;">
+0.0209956
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+decision\_tree
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_dt
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model02
+</td>
+<td style="text-align:left;">
+spec
+</td>
+<td style="text-align:right;">
+0.6044444
+</td>
+<td style="text-align:right;">
+0.0309520
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+decision\_tree
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_svm
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model04
+</td>
+<td style="text-align:left;">
+accuracy
+</td>
+<td style="text-align:right;">
+0.6906667
+</td>
+<td style="text-align:right;">
+0.0106667
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+svm\_rbf
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_svm
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model04
+</td>
+<td style="text-align:left;">
+sens
+</td>
+<td style="text-align:right;">
+0.8133333
+</td>
+<td style="text-align:right;">
+0.0136692
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+svm\_rbf
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_svm
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model04
+</td>
+<td style="text-align:left;">
+spec
+</td>
+<td style="text-align:right;">
+0.4044444
+</td>
+<td style="text-align:right;">
+0.0284583
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+svm\_rbf
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_logit
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model01
+</td>
+<td style="text-align:left;">
+accuracy
+</td>
+<td style="text-align:right;">
+0.6853333
+</td>
+<td style="text-align:right;">
+0.0187853
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+logistic\_reg
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_logit
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model01
+</td>
+<td style="text-align:left;">
+sens
+</td>
+<td style="text-align:right;">
+0.6761905
+</td>
+<td style="text-align:right;">
+0.0217176
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+logistic\_reg
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_logit
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model01
+</td>
+<td style="text-align:left;">
+spec
+</td>
+<td style="text-align:right;">
+0.7066667
+</td>
+<td style="text-align:right;">
+0.0215452
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+logistic\_reg
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_knn
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model06
+</td>
+<td style="text-align:left;">
+accuracy
+</td>
+<td style="text-align:right;">
+0.6840000
+</td>
+<td style="text-align:right;">
+0.0129271
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+nearest\_neighbor
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_knn
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model06
+</td>
+<td style="text-align:left;">
+sens
+</td>
+<td style="text-align:right;">
+0.7695238
+</td>
+<td style="text-align:right;">
+0.0174054
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+nearest\_neighbor
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rec\_knn
+</td>
+<td style="text-align:left;">
+Preprocessor1\_Model06
+</td>
+<td style="text-align:left;">
+spec
+</td>
+<td style="text-align:right;">
+0.4844444
+</td>
+<td style="text-align:right;">
+0.0293131
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+recipe
+</td>
+<td style="text-align:left;">
+nearest\_neighbor
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+</tbody>
+</table>
 
-Since accuracy is not the best metric to compare models, let’s check the
-area under the roc curve, which gives a better overview:
+</div>
+
+Tree based models have the best accuracies and sensitivities but low
+specificities. Logit and discriminant models have better specificities
+but lower performance overall. This can be confirmed by checking the
+area under the roc curve :
 
 ``` r
 #plot the performance of each model by rank
@@ -750,9 +1294,22 @@ wflow_set_grid_results %>%
 
 ![](rmd_files/figure-gfm/rank%20plot-1.png)<!-- -->
 
-This confirms our results, let’s take the best random forest model then.
+This confirms our intuition, let’s take the best random forest model
+then.
 
 ### c. Finalize
+
+Pull the best result’s workflow and look at the hyperparameters :
+
+-   mtry : The number of predictors that will be randomly sampled at
+    each split when creating the tree models.
+
+<!-- -->
+
+-   trees : The number of trees contained in the ensemble.
+
+-   min\_n : The minimum number of data points in a node that are
+    required for the node to be split further.
 
 ``` r
 #take the best result
@@ -760,6 +1317,15 @@ best_results <- wflow_set_grid_results %>%
   pull_workflow_set_result("rec_rf") %>% 
   select_best(metric = "roc_auc")
 
+best_results
+```
+
+    ## # A tibble: 1 x 4
+    ##    mtry trees min_n .config              
+    ##   <int> <int> <int> <chr>                
+    ## 1     8  1529    31 Preprocessor1_Model07
+
+``` r
 #fit the best model
 final_fit <- wflow_set_grid_results %>% 
   pull_workflow("rec_rf") %>% 
@@ -791,7 +1357,7 @@ conf_mat(risk_predictions,
 
 ![](rmd_files/figure-gfm/heatmap-1.png)<!-- -->
 
-Step\_smote helped to have this better result, where we have a better
+Step\_smote helped to has this better result, where we have a better
 sensitivity of the model and an acceptable specificity.
 
 Finally, the roc curve :

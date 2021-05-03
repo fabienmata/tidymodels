@@ -16,6 +16,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The dataset contains 1000 entries with 10 categorical/symbolic attributes. In this dataset, each entry represents a person who takes a credit by a bank. Each person is classified as good or bad credit risks according to the set of attributes. The link to the original dataset can be found [here](https://www.kaggle.com/kabure/german-credit-data-with-risk?select=german_credit_data.csv).
 
+### Aim 
+
+The goal of the study is for the bank to know whether a new customer is bad or good, based on the data that we have to decide if he should be given a loan or not.
+
 ### Content
 
 Here are the variables :
@@ -42,20 +46,23 @@ Here are the variables :
 
 ## 2. Packages
 
-The work was done using the tidymodels framework. is a collection of packages for modeling and machine learning using tidyverse principles. It is composed of the following packages :
+The work was done using the tidymodels framework. which is a collection of packages for modeling and machine learning using tidyverse principles. It is composed of the following packages :
 
--   'rsample' and 'recipes' for preprocessing
+-   'rsample' and 'recipes' for preprocessing.
 
 -   'parsnip' and 'tune' for modeling and model optimization. Parsnip depends on several machine learning engines, it then requires the presence of each package for each engine.
 
--   'yardstick' for model validation
+-   'yardstick' for model evaluation and validation
 
-'workfowsets' is not part of the tidymodels collection of package, event though it is a part of the **tidymodels** ecosystem. It helps to better manage machine learning workflows.
+'workfowsets' is not part of the tidymodels collection of package, even though it is a part of the **tidymodels** ecosystem. It helps to better manage machine learning workflows.
+
+Several other packages were used during the exploratory analysis. Their roles are given in the comments.
 
 ```{r library, results='hide', message=FALSE, warning=FALSE}
 library(tidymodels) 
 library(naniar) #NA handling
 library(finalfit) #NA handling
+library(kableExtra) #pretty tables
 library(workflowsets) 
 ###engines for parsnip models 
 library(glmnet) #for regularised logistic 
@@ -70,13 +77,13 @@ library(themis)
 
 ## 3. Exporatory analysis
 
-Let's take a first look at the data
+Let's take a first look at the data.
 
 ```{r import}
 risk <- read.csv("https://raw.githubusercontent.com/fabienmata/tidymodels/master/data/german_credit_data.csv", 
                  row.names = 'X',
                  stringsAsFactors = TRUE)
-library(kableExtra)
+
 risk %>% head() %>% kbl() %>% kable_styling()
 ```
 
@@ -129,7 +136,7 @@ cor(risk[nums]) %>%  corrplot(method = "color", col = col(200),
          )
 ```
 
-Credit amount and the duration of the credits are somehow correlated. Let's check this link.
+Credit amount and the duration of the credits are somehow correlated. Let's visually check this link.
 
 ```{r credit amount vs duration}
 risk %>% ggplot(aes(x= Duration, y = Credit.amount)) +
@@ -139,9 +146,9 @@ risk %>% ggplot(aes(x= Duration, y = Credit.amount)) +
   labs(title = "Credit amount / duration link", x= "", y="")
 ```
 
-Makes sense, the higher the amount is the longer the duration of the credit, no notable difference between bad and good customers. We can continue the analysis with this in mind.
+The higher the amount, the longer the duration of the credit. There is no notable difference between bad and good customers. We can continue the analysis with this in mind.
 
-Since the most interesting variables (credit amount, duration) are correlated, one of them would be enough to do the analysis of factor variables.
+Since the most interesting quantitative variables (credit amount, duration) are correlated, one of them would be enough to do the analysis of factor variables.
 
 Before qualitative variable analysis, let's take a look to the age distribution between good and bad customers.
 
@@ -227,15 +234,15 @@ risk_folds <- vfold_cv(data =  risk_training,
 
 Here is a little description of each function and the reason for them:
 
--   step_relevel : used to change the level of the binary outcome variable. By default, when importing the data, the event level is set to bad. Which is not really a problem but compromised the interpretation of the metrics, thus the change.
+-   step_relevel : used to change the level of the binary outcome variable. By default, when importing the data, the event level is set to 'bad'. We want the event to be 'good' for a better interpretability.
 
--   step_unknown : used to set na values to a new level in the concerned factor.
+-   step_unknown : used to set na values to a new level in the affected factor variable.
 
 -   step_normalize : self explanatory name.
 
 -   step_dummy : one-hot encoding dropping the reference level.
 
--   step_smote : data augmentation for the outcome : the rare event level, which is the level 'bad'. The data is augmented so that there are the same number of each outcome in the training dataset before modeling.
+-   step_smote : data augmentation for the outcome. In our outcome variable, the 'bad' level is underrepresented. The data is augmented so that there are the same number of entries for each levels in the training dataset before modeling.
 
 ```{r recipe}
 
@@ -268,7 +275,7 @@ For each model, the hyperparameters will be tuned using the 'tune' package and e
 
 -   a k nearest neighbor model.
 
--   a rbf kernel svm has been chosed as it is a good default model.
+-   a rbf kernel svm has been chosen as it is a good svm default model.
 
 ```{r models}
 logit_tuned <- logistic_reg(penalty = tune(), 
@@ -305,7 +312,7 @@ knn_tuned <- nearest_neighbor(neighbors = tune(),
   set_mode('classification')
 
 #support vector machine
-svm_poly_tuned <- svm_rbf(cost = tune(),
+svm_rbf_tuned <- svm_rbf(cost = tune(),
                           rbf_sigma = tune()) %>% 
   set_engine('kernlab') %>% 
   set_mode('classification')
@@ -325,7 +332,7 @@ models <- list(logit = logit_tuned,
                dt = dt_tuned, 
                rf = rf_tuned,
                knn = knn_tuned,
-               svm = svm_poly_tuned)
+               svm = svm_rbf_tuned)
 
 #incorporate them in a set of workflow
 risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec), 
@@ -357,14 +364,16 @@ wflow_set_grid_results <- risk_wflow_set %>%
 
 ```{r rank table}
 #rank the models by the area under the roc curve
+library(kableExtra)
 wflow_set_grid_results %>% 
-  rank_results(rank_metric = "accuracy") %>% 
-  filter(.metric == "accuracy" | .metric == "sens")
+  rank_results(rank_metric = "accuracy", select_best = TRUE) %>% 
+  filter(.metric == "accuracy" | .metric == "sens" | .metric == "spec" ) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%", height = "200px")
 ```
 
-Random forest models have the best accuracies and sensitivities. Which is good, because we only want to give credit to the good customers.
-
-Since accuracy is not the best metric to compare models, let's check the area under the roc curve :
+Tree based models have the best accuracies and sensitivities but low specificities. Logit and discriminant models have better specificities but lower performance overall. This can be confirmed by checking the area under the roc curve :
 
 ```{r rank plot}
 #plot the performance of each model by rank
@@ -373,9 +382,20 @@ wflow_set_grid_results %>%
            metric = "roc_auc")
 ```
 
-This confirms our results, let's take the best random forest model then.
+This confirms our intuition, let's take the best random forest model then.
 
 ### c. Finalize
+
+Pull the best result's workflow and look at the hyperparameters :
+
+-   mtry : The number of predictors that will be randomly sampled at each split when creating the tree models.
+
+```{=html}
+<!-- -->
+```
+-   trees : The number of trees contained in the ensemble.
+
+-   min_n : The minimum number of data points in a node that are required for the node to be split further.
 
 ```{r collect best result}
 #take the best result
@@ -383,6 +403,10 @@ best_results <- wflow_set_grid_results %>%
   pull_workflow_set_result("rec_rf") %>% 
   select_best(metric = "roc_auc")
 
+best_results
+```
+
+```{r fit best result}
 #fit the best model
 final_fit <- wflow_set_grid_results %>% 
   pull_workflow("rec_rf") %>% 
