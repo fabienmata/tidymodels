@@ -3,6 +3,7 @@ title: "Credit Risk with tidymodels"
 author: "Fabien Mata"
 date: "23/04/2021"
 output: rmarkdown::github_document
+always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
@@ -100,7 +101,7 @@ risk %>% missing_plot()
 
 ### b. Descriptive analysis
 
-```{r }
+```{r numerics }
 nums = c("Age", "Credit.amount", "Duration", "Job")
 risk[nums] %>%                    
   gather() %>%                            
@@ -305,7 +306,7 @@ final_fit <- wflow_set_grid_results %>%
 final_fit %>% collect_metrics()
 ```
 
-```{r}
+```{r heatmap}
 risk_predictions <- final_fit %>% collect_predictions()
 conf_mat(risk_predictions,
          truth = Risk,
