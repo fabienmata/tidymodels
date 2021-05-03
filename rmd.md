@@ -3,7 +3,7 @@ Credit Risk with tidymodels
 Fabien Mata
 23/04/2021
 
-## 1- The data
+## 1- Introduction
 
 ### Context
 
@@ -13,6 +13,11 @@ credit by a bank. Each person is classified as good or bad credit risks
 according to the set of attributes. The link to the original dataset can
 be found
 [here](https://www.kaggle.com/kabure/german-credit-data-with-risk?select=german_credit_data.csv).
+
+### Aim 
+
+The goal of the study is for the bank to know whether a new customer is bad or good, based on the data that we have to decide if he should be given a loan or not. 
+
 
 ### Content
 
