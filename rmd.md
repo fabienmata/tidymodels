@@ -71,6 +71,7 @@ library(klaR) #for discriminant analysis (engine)
 library(discrim) #for discriminant analysis (function)
 library(kknn) #for nearest neighbor
 library(kernlab) #for support vector machine
+library(themis)
 ```
 
 ## 3. Exporatory analysis
@@ -386,6 +387,8 @@ risk %>% missing_plot()
 
 ### b. Descriptive analysis
 
+Quantitative variables distribution :
+
 ``` r
 nums = c("Age", "Credit.amount", "Duration", "Job")
 risk[nums] %>%                    
@@ -396,6 +399,8 @@ risk[nums] %>%
 ```
 
 ![](rmd_files/figure-gfm/numerics-1.png)<!-- -->
+
+Correlation check between them
 
 ``` r
 require(corrplot)
@@ -409,7 +414,7 @@ require(corrplot)
 
 ``` r
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-corrplot(cor(risk[nums]), method = "color", col = col(200),  
+cor(risk[nums]) %>%  corrplot(method = "color", col = col(200),  
          type = "upper", order = "hclust", 
          addCoef.col = "black", # Add coefficient of correlation
          tl.col = "darkblue", tl.srt = 45, #Text label color and rotation
@@ -422,44 +427,86 @@ corrplot(cor(risk[nums]), method = "color", col = col(200),
 
 ![](rmd_files/figure-gfm/corrplot-1.png)<!-- -->
 
+Credit amount and the duration of the credits are somehow correlated.
+Let’s check this link.
+
 ``` r
-bg<-ggplot(risk, aes(x= Duration, y = Credit.amount)) +
+risk %>% ggplot(aes(x= Duration, y = Credit.amount)) +
   geom_point(aes(colour = Risk), alpha=.3) + 
-  theme(axis.text.x=element_blank(), legend.position = "none") +facet_wrap(~Risk)
-bg + labs(title = "Churners visit museum less", x= "", y="")
+  theme(axis.text.x=element_blank(), legend.position = "none") +
+  facet_wrap(~Risk)+
+  labs(title = "Credit amount / duration link", x= "", y="")
 ```
 
 ![](rmd_files/figure-gfm/credit%20amount%20vs%20duration-1.png)<!-- -->
 
+Makes sense, the higher the amount is the longer the duration of the
+credit, no notable difference between bad and good customers. We can
+continue the analysis with this in mind.
+
+Since the most interesting variables (credit amount, duration) are
+correlated, one of them would be enough to do the analysis of factor
+variables.
+
+Before qualitative variable analysis, let’s take a look to the age
+distribution between good and bad customers.
+
 ``` r
-ggplot(risk)+ 
-  geom_density(aes(x = Credit.amount,fill = Risk), alpha=.5)+
-  facet_wrap(~Saving.accounts)+
-  labs(title = "Price pattern", y= "", x="Age")
+risk %>% ggplot(aes(x = Age,fill = Risk))+ 
+  geom_density( alpha=.5)+
+  #facet_wrap(~Saving.accounts)+
+  labs(title = "Age distribution", y= "", x="Age")
 ```
 
 ![](rmd_files/figure-gfm/credit%20amount-1.png)<!-- -->
 
+Qualitative variables analysis :
+
+As said before, the most interesting variables to use for this is credit
+amount, it will be used as y.axis for each of the following figure.
+
+-   Housing
+
 ``` r
-ggplot(data = risk,aes(x= Saving.accounts, y =Credit.amount, color = Risk)) + 
+risk %>% ggplot(aes(x= Housing, y =Credit.amount, color = Risk)) + 
   geom_boxplot(size=1, alpha = .3) +
   scale_x_discrete() +
-  scale_y_continuous()+ geom_jitter(aes(color=Risk), alpha=.2)
+  scale_y_continuous()+ 
+  geom_jitter(aes(color=Risk), alpha=.2)
+```
+
+![](rmd_files/figure-gfm/housing-1.png)<!-- -->
+
+No noticeable link.
+
+-   Saving account
+
+``` r
+risk %>% ggplot(aes(x= Saving.accounts, y =Credit.amount, color = Risk)) + 
+  geom_boxplot(size=1, alpha = .3) +
+  scale_x_discrete() +
+  scale_y_continuous()+ 
+  geom_jitter(aes(color=Risk), alpha=.2)
 ```
 
 ![](rmd_files/figure-gfm/saving%20accounts-1.png)<!-- -->
 
+-   Checking account
+
 ``` r
-ggplot(data = risk,aes(x= Checking.account, y =Credit.amount, color = Risk)) + 
+risk %>% ggplot(aes(x= Checking.account, y =Credit.amount, color = Risk)) +
   geom_boxplot(size=1, alpha = .3) +
   scale_x_discrete() +
-  scale_y_continuous()+ geom_jitter(aes(color=Risk), alpha=.2)
+  scale_y_continuous()+ 
+  geom_jitter(aes(color=Risk), alpha=.2)
 ```
 
 ![](rmd_files/figure-gfm/checking%20account-1.png)<!-- -->
 
+-   Purpose
+
 ``` r
-ggplot(data = risk,aes(x= Purpose, y =Credit.amount, color = Risk)) + 
+risk %>% ggplot(aes(x= Purpose, y =Credit.amount, color = Risk)) + 
   geom_boxplot(size=1, alpha = .3) +
   scale_x_discrete() +
   scale_y_continuous()+ geom_jitter(aes(color=Risk), alpha=.2)
@@ -468,6 +515,8 @@ ggplot(data = risk,aes(x= Purpose, y =Credit.amount, color = Risk)) +
 ![](rmd_files/figure-gfm/purpose-1.png)<!-- -->
 
 ## 4. Prepocessing
+
+### a. Split the data (rsample)
 
 ``` r
 set.seed(1)
@@ -485,10 +534,31 @@ risk_test <- risk_split %>%
 set.seed(2)
 risk_folds <- vfold_cv(data =  risk_training,
                        #number of partition
-                       v = 3,
+                       v = 5,
                        #outcome variable
                        strata = Risk)
 ```
+
+### b. Feature engineering (recipes)
+
+Here is a little description of each function and the reason for them:
+
+-   step\_relevel : used to change the level of the binary outcome
+    variable. By default, when importing the data, the event level is
+    set to bad. Which is not really a problem but compromised the
+    interpretation of the metrics, thus the change.
+
+-   step\_unknown : used to set na values to a new level in the
+    concerned factor.
+
+-   step\_normalize : self explanatory name.
+
+-   step\_dummy : one-hot encoding dropping the reference level.
+
+-   step\_smote : data augmentation for the outcome : the rare event
+    level, which is the level ‘bad’. The data is augmented so that there
+    are the same number of each outcome in the training dataset before
+    modeling.
 
 ``` r
 risk_rec <- recipe(Risk ~., data = risk_training) %>% 
@@ -502,16 +572,36 @@ risk_rec <- recipe(Risk ~., data = risk_training) %>%
   step_normalize(all_numeric()) %>% 
   
   #turn all the factors into dummies and delete the reference level
-  step_dummy(all_nominal(), -all_outcomes())
+  step_dummy(all_nominal(), -all_outcomes()) %>% 
+  step_smote(Risk)
 ```
+
+### c. Model specification (parsnip, tune)
+
+For each model, the hyperparameters will be tuned using the ‘tune’
+package and engines are declared to be used to fit the models.
+
+-   an elastic net logistic regression (penalty and mixture stand for
+    respectively L2 and L1 penalties)
+
+-   a regularized discriminant analysis, the covariance is to be tuned
+    so the model will neither be an LDA nor a QDA.
+
+-   a decision tree.
+
+-   a random forest, with mtry = number of sampled predictors.
+
+-   a k nearest neighbor model.
+
+-   a rbf kernel svm has been chosed as it is a good default model.
 
 ``` r
 logit_tuned <- logistic_reg(penalty = tune(), 
-                                 mixture = tune()) %>%
+                            mixture = tune()) %>%
   set_engine('glmnet') %>%
   set_mode('classification')
 
-#regularised discriminant analysis : a compromise between qda and lda by setting the hyperparameter penalty
+#regularised discriminant analysis 
 
 rda_tuned <- discrim_regularized(frac_common_cov = tune(),
                                  frac_identity = tune()) %>% 
@@ -540,12 +630,17 @@ knn_tuned <- nearest_neighbor(neighbors = tune(),
   set_mode('classification')
 
 #support vector machine
-svm_poly_tuned <- svm_poly(cost = tune(),
-                          degree = tune(),
-                          scale_factor = tune()) %>% 
+svm_poly_tuned <- svm_rbf(cost = tune(),
+                          rbf_sigma = tune()) %>% 
   set_engine('kernlab') %>% 
   set_mode('classification')
 ```
+
+## 5. Modeling
+
+### a. Create a Workflowset
+
+-   Worklowset parameters :
 
 ``` r
 #make a list out of the models
@@ -566,6 +661,8 @@ risk_wflow_set <- workflow_set(preproc = list(rec = risk_rec),
 risk_metrics <- metric_set(accuracy, sens, spec, roc_auc)
 ```
 
+-   Tune the models :
+
 ``` r
 wflow_set_grid_results <- risk_wflow_set %>% 
   workflow_map(
@@ -585,51 +682,59 @@ wflow_set_grid_results <- risk_wflow_set %>%
 
     ## Warning: package 'vctrs' was built under R version 4.0.5
 
-    ## v 1 of 6 tuning:     rec_logit (12.8s)
+    ## v 1 of 6 tuning:     rec_logit (22.3s)
 
     ## i 2 of 6 tuning:     rec_rda
 
-    ## v 2 of 6 tuning:     rec_rda (15.2s)
+    ## v 2 of 6 tuning:     rec_rda (23.6s)
 
     ## i 3 of 6 tuning:     rec_dt
 
-    ## v 3 of 6 tuning:     rec_dt (13.5s)
+    ## v 3 of 6 tuning:     rec_dt (21.7s)
 
     ## i 4 of 6 tuning:     rec_rf
 
     ## i Creating pre-processing data to finalize unknown parameter: mtry
 
-    ## v 4 of 6 tuning:     rec_rf (39.2s)
+    ## v 4 of 6 tuning:     rec_rf (1m 34.3s)
 
     ## i 5 of 6 tuning:     rec_knn
 
-    ## v 5 of 6 tuning:     rec_knn (26.8s)
+    ## v 5 of 6 tuning:     rec_knn (1m 9.5s)
 
     ## i 6 of 6 tuning:     rec_svm
 
-    ## v 6 of 6 tuning:     rec_svm (15.9s)
+    ## v 6 of 6 tuning:     rec_svm (40.4s)
+
+### b. Model screening
 
 ``` r
 #rank the models by the area under the roc curve
 wflow_set_grid_results %>% 
-  rank_results(rank_metric = "roc_auc") %>% 
-  filter(.metric == "roc_auc")
+  rank_results(rank_metric = "accuracy") %>% 
+  filter(.metric == "accuracy" | .metric == "sens")
 ```
 
-    ## # A tibble: 60 x 9
-    ##    wflow_id  .config     .metric  mean std_err     n preprocessor model     rank
-    ##    <chr>     <chr>       <chr>   <dbl>   <dbl> <int> <chr>        <chr>    <int>
-    ##  1 rec_rda   Preprocess~ roc_auc 0.748  0.0249     3 recipe       discrim~     1
-    ##  2 rec_rf    Preprocess~ roc_auc 0.748  0.0218     3 recipe       rand_fo~     2
-    ##  3 rec_rda   Preprocess~ roc_auc 0.747  0.0257     3 recipe       discrim~     3
-    ##  4 rec_rf    Preprocess~ roc_auc 0.747  0.0208     3 recipe       rand_fo~     4
-    ##  5 rec_rf    Preprocess~ roc_auc 0.745  0.0169     3 recipe       rand_fo~     5
-    ##  6 rec_rf    Preprocess~ roc_auc 0.744  0.0228     3 recipe       rand_fo~     6
-    ##  7 rec_rf    Preprocess~ roc_auc 0.744  0.0153     3 recipe       rand_fo~     7
-    ##  8 rec_logit Preprocess~ roc_auc 0.743  0.0245     3 recipe       logisti~     8
-    ##  9 rec_logit Preprocess~ roc_auc 0.742  0.0249     3 recipe       logisti~     9
-    ## 10 rec_rf    Preprocess~ roc_auc 0.742  0.0187     3 recipe       rand_fo~    10
-    ## # ... with 50 more rows
+    ## # A tibble: 120 x 9
+    ##    wflow_id .config       .metric  mean std_err     n preprocessor model    rank
+    ##    <chr>    <chr>         <chr>   <dbl>   <dbl> <int> <chr>        <chr>   <int>
+    ##  1 rec_rf   Preprocessor~ accura~ 0.744 0.0105      5 recipe       rand_f~     1
+    ##  2 rec_rf   Preprocessor~ sens    0.796 0.0111      5 recipe       rand_f~     1
+    ##  3 rec_rf   Preprocessor~ accura~ 0.741 0.0125      5 recipe       rand_f~     2
+    ##  4 rec_rf   Preprocessor~ sens    0.821 0.0152      5 recipe       rand_f~     2
+    ##  5 rec_rf   Preprocessor~ accura~ 0.74  0.0114      5 recipe       rand_f~     3
+    ##  6 rec_rf   Preprocessor~ sens    0.810 0.00797     5 recipe       rand_f~     3
+    ##  7 rec_rf   Preprocessor~ accura~ 0.739 0.00490     5 recipe       rand_f~     4
+    ##  8 rec_rf   Preprocessor~ sens    0.787 0.00646     5 recipe       rand_f~     4
+    ##  9 rec_rf   Preprocessor~ accura~ 0.733 0.00298     5 recipe       rand_f~     5
+    ## 10 rec_rf   Preprocessor~ sens    0.785 0.00883     5 recipe       rand_f~     5
+    ## # ... with 110 more rows
+
+Random forest models have the best accuracies and sensitivities. Which
+is good, because we only want to give credit to the good customers.
+
+Since accuracy is not the best metric to compare models, let’s check the
+area under the roc curve :
 
 ``` r
 #plot the performance of each model by rank
@@ -639,6 +744,10 @@ wflow_set_grid_results %>%
 ```
 
 ![](rmd_files/figure-gfm/rank%20plot-1.png)<!-- -->
+
+This confirms our results, let’s take the best random forest model then.
+
+### c. Finalize
 
 ``` r
 #take the best result
@@ -653,6 +762,8 @@ final_fit <- wflow_set_grid_results %>%
   last_fit(risk_split)
 ```
 
+-   Best model metrics with test set
+
 ``` r
 final_fit %>% collect_metrics()
 ```
@@ -660,8 +771,10 @@ final_fit %>% collect_metrics()
     ## # A tibble: 2 x 4
     ##   .metric  .estimator .estimate .config             
     ##   <chr>    <chr>          <dbl> <chr>               
-    ## 1 accuracy binary         0.732 Preprocessor1_Model1
-    ## 2 roc_auc  binary         0.767 Preprocessor1_Model1
+    ## 1 accuracy binary         0.708 Preprocessor1_Model1
+    ## 2 roc_auc  binary         0.758 Preprocessor1_Model1
+
+-   Confusion matrix
 
 ``` r
 risk_predictions <- final_fit %>% collect_predictions()
@@ -672,3 +785,16 @@ conf_mat(risk_predictions,
 ```
 
 ![](rmd_files/figure-gfm/heatmap-1.png)<!-- -->
+
+Step\_smote helped to has this better result, where we have a better
+sensitivity of the model and an acceptable specificity.
+
+Finally, the roc curve :
+
+``` r
+risk_predictions %>%
+  roc_curve(truth = Risk, .pred_good) %>% 
+  autoplot()
+```
+
+![](rmd_files/figure-gfm/roc%20curve-1.png)<!-- -->
